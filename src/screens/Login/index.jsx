@@ -25,13 +25,13 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [isPasswordValid, setIsPasswordValid] = useState(false);
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [createPassword, setCreatePassword] = useState(false)
+  const [createAccount, setCreateAccount] = useState(false)
   const [showPassword, setShowPassword] = useState(false);
   const [forgotPassword, setForgotPassword] = useState(false);
   const [loginLoading, setLoginLoadin] = useState(false)
 
 
-  const fieldsValidation = (callback) => {
+  const fieldsValidation = async (callback) => {
     const validationEmail = emailValidation(email);
     if (email === '' || !validationEmail) {
       setLoginLoadin(false)
@@ -46,49 +46,47 @@ const Login = () => {
     }
 
     if (validationEmail && password !== '') {
-      callback
-       setLoginLoadin(false)
-       setIsPasswordValid(false)
-       return setIsEmailValid(false)
+      setIsPasswordValid(false)
+      setIsEmailValid(false)
+      try {
+        const request = await callback;
+        setLoginLoadin(false)
+        return { success: true, data: request };
+      } catch (err) {
+        setLoginLoadin(false)
+        return { success: false, data: request }
+      }
+       
     }
 
   };
 
   const handleSignIn = () => {
     setLoginLoadin(true)
-    const signInFn = auth()
-      .signInWithEmailAndPassword(email, password)
-      .then((response) => console.log('Success', response))
-      .catch((error) => console.log('Error', error));
 
-    return fieldsValidation(signInFn)
+    return fieldsValidation(
+      auth()
+        .signInWithEmailAndPassword(email, password)
+    )
   };
 
   const handleSignUp = () => {
-    const signUpFn = auth()
-      .createUserWithEmailAndPassword(email, password)
-      .then(() => console.log('Conta criada com sucesso!'))
-      .catch(error => {
-        if (error.code === 'auth/email-already-in-use') {
-          console.log('That email address is already in use!');
-        }
-        if (error.code === 'auth/invalid-email') {
-          console.log('That email address is invalid!');
-        }
-        console.error(error);
-      });
-    
-      return fieldsValidation(signUpFn)
+    const { status } = fieldsValidation(
+      auth()
+        .createUserWithEmailAndPassword(email, password)
+    )
+    if (!status) {
+      return setCreateAccount(false)
+    }
   };
 
   const handleResetPassword = () => {
-    const resetFn = auth()
-      .sendPasswordResetEmail(email)
-      .then((response) => console.log(response))
-      .catch((error) => console.log(error))
+    setForgotPassword(false);
 
-    fieldsValidation(resetFn)
-    return setForgotPassword(false);
+    return fieldsValidation(
+      auth()
+        .sendPasswordResetEmail(email)
+    )
   };
 
   return (
@@ -101,7 +99,7 @@ const Login = () => {
         space={12}
       >
         <Image style={styles.image} source={require('../../assets/login-icon.png')} alt='logomarca' />
-        <VStack h={createPassword ? 220 : 160} space={8}>
+        <VStack h={createAccount ? 220 : 160} space={8}>
           <Box alignItems='flex-start'>
             <FormControl isInvalid={isEmailValid}>
               <Input
@@ -133,7 +131,7 @@ const Login = () => {
                 onChangeText={setPassword}
                 size='xl'
                 InputRightElement={
-                  !createPassword
+                  !createAccount
                   && <Icon
                     as={Ionicons}
                     name={showPassword ? 'md-eye-off-outline' : 'md-eye-outline'}
@@ -150,12 +148,12 @@ const Login = () => {
                 <Text>Preencha este campo!</Text>
               </FormControl.ErrorMessage>
             </FormControl>
-            {!createPassword
+            {!createAccount
               && <Text color='#fff' mt={2} alignSelf='flex-end' onPress={() => setForgotPassword(true)}>Esqueceu sua senha?</Text>
             }
           </Box>
           {
-            createPassword && (
+            createAccount && (
               <Box alignItems='flex-start'>
                 <FormControl isInvalid={isPasswordValid}>
                   <Input
@@ -191,7 +189,7 @@ const Login = () => {
         </VStack>
         <VStack w='full' space={6}>
           {
-            !createPassword &&
+            !createAccount &&
             <Button
               onPress={handleSignIn}
               bgColor='#00875f'
@@ -203,9 +201,9 @@ const Login = () => {
             </Button>
           }
           <Button
-            variant={createPassword ? 'solid' : 'unstyled'}
-            onPress={() => createPassword ? handleSignUp : setCreatePassword(true)}
-            bgColor={createPassword ? '#00875f' : 'transparent'}
+            variant={createAccount ? 'solid' : 'unstyled'}
+            onPress={createAccount ? handleSignUp : () => setCreateAccount(true)}
+            bgColor={createAccount ? '#00875f' : 'transparent'}
             width='full'
             h={50}
             _text={styles.buttonText}
@@ -213,9 +211,9 @@ const Login = () => {
             Criar conta
           </Button>
           {
-            createPassword
+            createAccount
             && <Text
-              onPress={() => setCreatePassword(false)}
+              onPress={() => setCreateAccount(false)}
               color='#fff'
               alignSelf='center'
             >
