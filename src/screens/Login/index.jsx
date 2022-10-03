@@ -1,5 +1,6 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import auth from '@react-native-firebase/auth';
+import { GoogleSignin, GoogleSigninButton } from '@react-native-google-signin/google-signin';
 import { StyleSheet, ActivityIndicator } from 'react-native';
 import {
   Box,
@@ -13,13 +14,14 @@ import {
   Button,
   Image,
   Checkbox,
-  Modal
+  Modal,
+  Divider
 } from 'native-base';
 import { Ionicons } from '@expo/vector-icons';
 import { emailValidation } from '../../utils/validations';
 
 
-const Login = () => {
+const Login = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [isEmailValid, setIsEmailValid] = useState(false);
   const [password, setPassword] = useState('');
@@ -30,8 +32,7 @@ const Login = () => {
   const [forgotPassword, setForgotPassword] = useState(false);
   const [loginLoading, setLoginLoadin] = useState(false)
 
-
-  const fieldsValidation = async (callback) => {
+  const fieldsValidation = () => {
     const validationEmail = emailValidation(email);
     if (email === '' || !validationEmail) {
       setLoginLoadin(false)
@@ -48,54 +49,77 @@ const Login = () => {
     if (validationEmail && password !== '') {
       setIsPasswordValid(false)
       setIsEmailValid(false)
-      try {
-        const request = await callback;
-        setLoginLoadin(false)
-        return { success: true, data: request };
-      } catch (err) {
-        setLoginLoadin(false)
-        return { success: false, data: request }
-      }
-       
+      return true
     }
 
+    setLoginLoadin(false)
+    return false;
   };
 
-  const handleSignIn = () => {
-    setLoginLoadin(true)
+  const handleSignIn = async () => {
+    setLoginLoadin(true);
+    const validation = fieldsValidation();
 
-    return fieldsValidation(
-      auth()
+    if (validation) {
+      return auth()
         .signInWithEmailAndPassword(email, password)
-    )
+        .then(() => {
+          setLoginLoadin(false)
+          navigation.navigate('Home')
+        })
+    }
+
+    return false;
   };
 
-  const handleSignUp = () => {
-    const { status } = fieldsValidation(
-      auth()
+  const handleSignInWithGoogle = async () => {
+    try {
+      await GoogleSignin.hasPlayServices();
+      const userInfo = await GoogleSignin.signIn();
+      console.log(userInfo)
+    } catch (error) {
+      console.log(error)
+    };
+  };
+
+  const handleSignUp = async () => {
+    setLoginLoadin(true);
+    const validation = fieldsValidation();
+
+    if (validation) {
+      return await auth()
         .createUserWithEmailAndPassword(email, password)
-    )
-    if (!status) {
-      return setCreateAccount(false)
+        .then(() => {
+          setLoginLoadin(false)
+          setCreateAccount(false)
+          handleSignIn()
+        })
     }
   };
 
-  const handleResetPassword = () => {
+  const handleResetPassword = async () => {
+    setLoginLoadin(true);
     setForgotPassword(false);
 
-    return fieldsValidation(
-      auth()
-        .sendPasswordResetEmail(email)
-    )
+    return await auth()
+      .sendPasswordResetEmail(email)
+      .then(() => setLoginLoadin(false))
   };
 
+  useEffect(() => {
+    GoogleSignin.configure({
+      webClientId: '605928001302-qeqefdqrvaqf85imqm752vv32nb1rlbi.apps.googleusercontent.com'
+    });
+  }, [])
+
   return (
-    <Center height='full' bg='#121214'>
+    <Center height='full' bg='#121214' safeAreaTop>
       <VStack
         alignSelf='center'
-        width='full'
         justifyContent='center'
-        p={10}
+        width='full'
+        pr={10}
+        pl={10}
         space={12}
       >
         <Image style={styles.image} source={require('../../assets/login-icon.png')} alt='logomarca' />
@@ -189,16 +213,17 @@ const Login = () => {
         </VStack>
         <VStack w='full' space={6}>
           {
-            !createAccount &&
-            <Button
-              onPress={handleSignIn}
-              bgColor='#00875f'
-              width='full'
-              h={50}
-              _text={styles.buttonText}
-            >
-              Entrar
-            </Button>
+            !createAccount && (
+              <Button
+                onPress={handleSignIn}
+                bgColor='#00875f'
+                width='full'
+                h={50}
+                _text={styles.buttonText}
+              >
+                Entrar
+              </Button>
+            )
           }
           <Button
             variant={createAccount ? 'solid' : 'unstyled'}
@@ -219,6 +244,19 @@ const Login = () => {
             >
               Já possui uma conta? Faça Login
             </Text>
+          }
+          {
+            !createAccount && (
+              <Box alignItems='center'>
+                <Box mb={4} flexDirection='row' alignItems='center'>
+                  <Divider w={20} /><Text color='#fff' ml={2} mr={2}>OU</Text><Divider w={20} />
+                </Box>
+                <GoogleSigninButton
+                  size={GoogleSigninButton.Size.Icon}
+                  onPress={handleSignInWithGoogle}
+                />
+              </Box>
+            )
           }
         </VStack>
       </VStack>
@@ -291,5 +329,15 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     fontWeight: 'bold',
     color: '#fff'
+  },
+  googleButton: {
+    display: 'flex',
+    flexDirection: 'row',
+    width: '100%',
+    heigh: '50px',
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: '#fff',
   }
-})
+});
